@@ -8,3 +8,11 @@ import (
 func GetBotToken() string {
 	return os.Getenv("BOT_TOKEN")
 }
+
+func GetServerPort() string {
+	port := os.Getenv("PORT")
+	if port == "" {
+		return "4000" // Default port
+	}
+	return port
+}
