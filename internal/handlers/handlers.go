@@ -199,10 +199,7 @@ func downloadImage(url, filePath string) error {
 		return fmt.Errorf("erro ao criar arquivo: %w", err)
 	}
 	defer file.Close()
-
-	if _, err = io.Copy(file, data); err != nil {
-		return fmt.Errorf("erro ao salvar imagem: %w", err)
-	}
+	fmt.Printf("Download data %s", data)
 
 	log.Println("[SUCESSO] Imagem salva:", filePath)
 	return nil
