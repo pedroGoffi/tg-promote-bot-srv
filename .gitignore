@@ -1,0 +1,33 @@
+images/*
+
+.env*
+
+# Go build artifacts
+bin/
+obj/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go workspace files
+*.log
+*.out
+*.test
+
+# Dependency directories
+vendor/
+
+# IDE or editor directories
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Go module cache
+/go.mod
+/go.sum
+
+# Go coverage files
+*.coverprofile
