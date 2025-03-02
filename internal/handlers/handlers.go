@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bot-manager/internal/uploader"
 	"bytes"
 	"encoding/base64"
 	"errors"
@@ -62,15 +63,15 @@ func DownloadImageFromTelegram(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Imagem já existente", "endpoint": "/static/" + imageName})
 		return
 	}
-
-	if err := downloadImage(req.TelegramLink, imagePath); err != nil {
+	srv_url, err := downloadImage(req.TelegramLink, imagePath)
+	if err != nil {
 		log.Println("[ERRO] Falha ao baixar imagem:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao baixar imagem"})
 		return
 	}
 
 	log.Println("[SUCESSO] Imagem baixada:", imagePath)
-	c.JSON(http.StatusOK, gin.H{"message": "Imagem baixada com sucesso", "endpoint": "/static/" + imageName})
+	c.JSON(http.StatusOK, gin.H{"message": "Imagem baixada com sucesso", "endpoint": srv_url})
 }
 
 // extractImageName extrai o nome da imagem do link
@@ -147,30 +148,30 @@ func downloadImagebase64(dataURI string) ([]byte, error) {
 }
 
 // downloadImage baixa uma imagem de um link fornecido
-func downloadImage(url, filePath string) error {
+func downloadImage(url, filePath string) (string, error) {
 	log.Println("[DOWNLOAD] Iniciando download:", url)
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("erro ao conectar ao link: %w", err)
+		return "", fmt.Errorf("erro ao conectar ao link: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("erro ao baixar imagem, status: %s", resp.Status)
+		return "", fmt.Errorf("erro ao baixar imagem, status: %s", resp.Status)
 	}
 
 	if err := os.MkdirAll(imageDir, os.ModePerm); err != nil {
-		return fmt.Errorf("erro ao criar diretório: %w", err)
+		return "", fmt.Errorf("erro ao criar diretório: %w", err)
 	}
 
 	doc, err := parseResponse(resp)
 	if err != nil {
-		return fmt.Errorf("erro ao realizar parser sobre o link %s", url)
+		return "", fmt.Errorf("erro ao realizar parser sobre o link %s", url)
 	}
 
 	link, err := FindImage(doc)
 	if err != nil {
-		return fmt.Errorf("falha ao realizar download de imagem sobre o link %s", url)
+		return "", fmt.Errorf("falha ao realizar download de imagem sobre o link %s", url)
 	}
 	resp.Body.Close()
 	var data io.Reader
@@ -178,7 +179,7 @@ func downloadImage(url, filePath string) error {
 	if strings.HasPrefix(link, "http") {
 		resp, err := http.Get(link)
 		if err != nil {
-			return fmt.Errorf("falha ao capturar imagem: %w", err)
+			return "", fmt.Errorf("falha ao capturar imagem: %w", err)
 		}
 		defer resp.Body.Close()
 
@@ -186,7 +187,7 @@ func downloadImage(url, filePath string) error {
 	} else if strings.HasPrefix(link, "data:image") {
 		decoded, err := downloadImagebase64(link)
 		if err != nil {
-			return fmt.Errorf("falha ao realizar decode de imagem base 64\n[%s]", link)
+			return "", fmt.Errorf("falha ao realizar decode de imagem base 64\n[%s]", link)
 		}
 
 		data = bytes.NewReader(decoded)
@@ -194,13 +195,13 @@ func downloadImage(url, filePath string) error {
 
 	}
 
-	file, err := os.Create(filePath)
-	if err != nil {
-		return fmt.Errorf("erro ao criar arquivo: %w", err)
-	}
-	defer file.Close()
 	fmt.Printf("Download data %s", data)
+	srv_url, err := uploader.UploadFile(filePath, data)
+	if err != nil {
+		return "", fmt.Errorf("falha ao realizar upload")
+
+	}
 
 	log.Println("[SUCESSO] Imagem salva:", filePath)
-	return nil
+	return srv_url, nil
 }
