@@ -25,9 +25,7 @@ vendor/
 *.sublime-workspace
 *.sublime-project
 
-# Go module cache
-/go.mod
-/go.sum
+
 
 # Go coverage files
 *.coverprofile

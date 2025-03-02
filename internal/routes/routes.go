@@ -12,4 +12,5 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		api.POST("/tgimg", handlers.DownloadImageFromTelegram)
 	}
+
 }
