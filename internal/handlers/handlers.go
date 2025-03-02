@@ -76,7 +76,8 @@ func DownloadImageFromTelegram(c *gin.Context) {
 // extractImageName extrai o nome da imagem do link
 func extractImageName(telegramLink string) string {
 	parts := strings.Split(telegramLink, "/")
-	return parts[len(parts)-1]
+	// Sanitizando o nome da imagem
+	return strings.ReplaceAll(parts[len(parts)-1], "+", "_") // Substitui o '+' por '_'
 }
 
 // fileExists verifica se um arquivo já existe
@@ -148,7 +149,6 @@ func downloadImagebase64(dataURI string) ([]byte, error) {
 // downloadImage baixa uma imagem de um link fornecido
 func downloadImage(url, filePath string) error {
 	log.Println("[DOWNLOAD] Iniciando download:", url)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("erro ao conectar ao link: %w", err)
