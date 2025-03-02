@@ -8,9 +8,6 @@ import (
 )
 
 func IniciarBot() {
-	// Carregar variáveis de ambiente
-	config.LoadConfig()
-
 	// Obter token do bot
 	botToken := config.GetBotToken()
 
