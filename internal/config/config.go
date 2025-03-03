@@ -18,5 +18,5 @@ func GetServerPort() string {
 }
 
 func GetUT_KEY() string {
-	return os.Getenv("UPLOAD_THING_API_KEY")
+	return os.Getenv("UPLOADTHING_TOKEN")
 }
