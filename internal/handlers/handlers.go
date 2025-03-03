@@ -91,9 +91,9 @@ func fileExists(path string) bool {
 func FindImage(body *html.Node) (string, error) {
 	var name string = "N-IMPL"
 	var src string
-	var search func(*html.Node)
+	var RecursiveSearch func(*html.Node)
 
-	search = func(n *html.Node) {
+	RecursiveSearch = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "img" {
 			for _, attr := range n.Attr {
 				if attr.Key == "class" && attr.Val == "tgme_page_photo_image" {
@@ -107,11 +107,11 @@ func FindImage(body *html.Node) (string, error) {
 			}
 		}
 		for c := n.FirstChild; c != nil && src == ""; c = c.NextSibling {
-			search(c)
+			RecursiveSearch(c)
 		}
 	}
 
-	search(body)
+	RecursiveSearch(body)
 
 	if src == "" && name == "" {
 		return "", fmt.Errorf("imagem/nome não encontrado")
@@ -176,7 +176,7 @@ func downloadImage(url, filePath string) (string, error) {
 	}
 	resp.Body.Close()
 	var data io.Reader
-
+	// Check if the image is a link or a base64 encoded img
 	if strings.HasPrefix(link, "http") {
 		resp, err := http.Get(link)
 		if err != nil {

@@ -19,8 +19,22 @@ type ImgBBResponse struct {
 	Success bool `json:"success"`
 }
 
+func AlreadyUploaded(url string) bool {
+	resp, err := http.Head(url)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
 // UploadImage uploads an image to ImgBB and returns its URL
 func UploadImage(fileName string, fileData io.Reader, expirationSeconds int) (string, error) {
+	var checkExistsUrl string = fmt.Sprintf("https://i.ibb.co/RTKdyNHj/%s", fileName)
+	if AlreadyUploaded(checkExistsUrl) {
+		return checkExistsUrl, nil
+	}
+
 	apiKey := config.GetUploadKey()
 	if apiKey == "" {
 		return "", fmt.Errorf("IMGBB_API_KEY is not set")
