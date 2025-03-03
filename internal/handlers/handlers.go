@@ -89,6 +89,7 @@ func fileExists(path string) bool {
 
 // FindImage percorre o HTML e retorna o valor do atributo src da imagem desejada
 func FindImage(body *html.Node) (string, error) {
+	var name string = "N-IMPL"
 	var src string
 	var search func(*html.Node)
 
@@ -112,8 +113,8 @@ func FindImage(body *html.Node) (string, error) {
 
 	search(body)
 
-	if src == "" {
-		return "", fmt.Errorf("imagem não encontrada")
+	if src == "" && name == "" {
+		return "", fmt.Errorf("imagem/nome não encontrado")
 	}
 	return src, nil
 }
