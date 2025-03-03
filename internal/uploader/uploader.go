@@ -17,22 +17,18 @@ type UploadResponse struct {
 	} `json:"files"`
 }
 
-// UploadFile uploads a file to UploadThing and returns its URL
+// UploadFile uploads a file to UploadThing and returns the file URL.
 func UploadFile(fileName string, fileData io.Reader) (string, error) {
-	apiKey := config.GetUT_KEY() // ✅ Keeping your API key retrieval method
-
+	apiKey := config.GetUT_KEY() // Keep using your function to get API key
 	if apiKey == "" {
 		return "", fmt.Errorf("UPLOADTHING_API_KEY is not set")
 	}
 
-	// Debugging (optional)
-	fmt.Println("DEBUG: API Key Retrieved (length):", len(apiKey))
-
-	// Prepare the form data
+	// Prepare multipart form data
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
 
-	// Attach the file
+	// Attach file
 	part, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create form file: %w", err)
@@ -44,22 +40,17 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 	// Close writer to finalize the form
 	writer.Close()
 
-	// Create the request
+	// Create HTTP request
 	req, err := http.NewRequest("POST", "https://uploadthing.com/api/upload", &requestBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// 🔥 Try both Authorization formats (comment/uncomment to test)
-	req.Header.Set("Authorization", "Bearer "+apiKey) // Common format
-	req.Header.Set("X-API-Key", apiKey)               // Alternative API key format
-
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	// Debugging (optional)
-	fmt.Println("DEBUG: Sending request to UploadThing...")
-
-	// Send the request
+	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -67,13 +58,13 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	// Read response
+	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Check for a successful response
+	// Check for successful response
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("upload failed: %s", string(body))
 	}
@@ -84,7 +75,7 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 		return "", fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 
-	// Ensure we have a valid URL
+	// Ensure file URL is returned
 	if len(result.Files) == 0 {
 		return "", fmt.Errorf("no files returned from UploadThing")
 	}
