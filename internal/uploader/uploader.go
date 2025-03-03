@@ -19,11 +19,14 @@ type UploadResponse struct {
 
 // UploadFile uploads a file to UploadThing and returns its URL
 func UploadFile(fileName string, fileData io.Reader) (string, error) {
-	apiKey := config.GetUT_KEY()
+	apiKey := config.GetUT_KEY() // ✅ Keeping your API key retrieval method
 
 	if apiKey == "" {
 		return "", fmt.Errorf("UPLOADTHING_API_KEY is not set")
 	}
+
+	// Debugging (optional)
+	fmt.Println("DEBUG: API Key Retrieved (length):", len(apiKey))
 
 	// Prepare the form data
 	var requestBody bytes.Buffer
@@ -47,9 +50,14 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	// 🔥 Try both Authorization formats (comment/uncomment to test)
+	req.Header.Set("Authorization", "Bearer "+apiKey) // Common format
+	// req.Header.Set("X-API-Key", apiKey) // Alternative API key format
+
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Debugging (optional)
+	fmt.Println("DEBUG: Sending request to UploadThing...")
 
 	// Send the request
 	client := &http.Client{}
