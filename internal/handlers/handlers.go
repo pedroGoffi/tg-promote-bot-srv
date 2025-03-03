@@ -196,12 +196,5 @@ func downloadImage(url, filePath string) (string, error) {
 	}
 
 	fmt.Printf("Download data %s", data)
-	srv_url, err := uploader.UploadFile(filePath, data)
-	if err != nil {
-		return "", fmt.Errorf("falha ao realizar upload")
-
-	}
-
-	log.Println("[SUCESSO] Imagem salva:", filePath)
-	return srv_url, nil
+	return uploader.UploadFile(filePath, data)
 }
