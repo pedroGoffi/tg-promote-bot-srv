@@ -1,6 +1,10 @@
 package server
 
+// Pedro Henrique Goffi de Paulo
+// REV (0, 1)
+
 import (
+	"bot-manager/internal/config"
 	routes "bot-manager/internal/routes"
 	"fmt"
 
@@ -19,7 +23,7 @@ func StartServer() {
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{"success": "true"}) })
 
 	// Rodar servidor
-	port := "8080"
+	port := config.GetServerPort()
 	fmt.Println("Servidor rodando na porta", port)
 	r.Run(":" + port)
 }
