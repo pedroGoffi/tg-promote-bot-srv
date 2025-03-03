@@ -17,6 +17,6 @@ func GetServerPort() string {
 	return port
 }
 
-func GetUT_KEY() string {
-	return os.Getenv("UPLOADTHING_TOKEN")
+func GetUploadKey() string {
+	return os.Getenv("IMGBB_API_KEY")
 }

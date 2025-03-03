@@ -194,13 +194,6 @@ func downloadImage(url, filePath string) (string, error) {
 		filePath = filePath + ".svg"
 
 	}
-	var buf bytes.Buffer
-	size, err := io.Copy(&buf, data) // Copia os dados para um buffer e retorna o tamanho
-	if err != nil {
-		return "", fmt.Errorf("failed to read data: %w", err)
-	}
 
-	fmt.Printf("Download data size: %d bytes\n", size)
-
-	return uploader.UploadFile(filePath, &buf, size)
+	return uploader.UploadImage(filePath, data, 0)
 }

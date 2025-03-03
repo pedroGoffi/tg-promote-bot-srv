@@ -8,52 +8,59 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 )
 
-// PrepareUploadResponse represents the response from UploadThing's prepareUpload endpoint.
-type PrepareUploadResponse struct {
-	Files []struct {
-		Key          string `json:"key"`
-		UploadURL    string `json:"uploadUrl"`
-		UploadedFile string `json:"uploadedFile"`
-	} `json:"files"`
+// ImgBB API response struct
+type ImgBBResponse struct {
+	Data struct {
+		URL string `json:"url"`
+	} `json:"data"`
+	Success bool `json:"success"`
 }
 
-// UploadFile uploads a file to UploadThing and returns the file URL.
-func UploadFile(fileName string, fileData io.Reader, fileSize int64) (string, error) {
-	apiKey := config.GetUT_KEY()
+// UploadImage uploads an image to ImgBB and returns its URL
+func UploadImage(fileName string, fileData io.Reader, expirationSeconds int) (string, error) {
+	apiKey := config.GetUploadKey()
 	if apiKey == "" {
-		return "", fmt.Errorf("UPLOADTHING_API_KEY is not set")
+		return "", fmt.Errorf("IMGBB_API_KEY is not set")
 	}
 
-	// Step 1: Prepare the Upload
-	prepareUploadURL := "https://api.uploadthing.com/v6/prepareUpload"
-	payload := map[string]interface{}{
-		"callbackUrl":  "",
-		"callbackSlug": "",
-		"files": []map[string]interface{}{
-			{
-				"name":     fileName,
-				"size":     fileSize,
-				"customId": nil,
-			},
-		},
-		"routeConfig": []string{"image"}, // Adjust based on your needs
-		"metadata":    nil,
-	}
+	// Create form-data payload
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
 
-	payloadBytes, err := json.Marshal(payload)
+	// Create file field
+	part, err := writer.CreateFormFile("image", fileName)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal JSON payload: %w", err)
+		return "", fmt.Errorf("failed to create form file: %w", err)
+	}
+	if _, err := io.Copy(part, fileData); err != nil {
+		return "", fmt.Errorf("failed to copy file data: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", prepareUploadURL, bytes.NewBuffer(payloadBytes))
+	// Add API key as form field
+	_ = writer.WriteField("key", apiKey)
+
+	// Optional: Set the image name
+	_ = writer.WriteField("name", fileName)
+
+	// Optional: Set expiration time if provided
+	if expirationSeconds > 0 {
+		_ = writer.WriteField("expiration", strconv.Itoa(expirationSeconds))
+	}
+
+	// Close writer
+	writer.Close()
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", "https://api.imgbb.com/1/upload", &requestBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("X-Uploadthing-Api-Key", apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -61,51 +68,22 @@ func UploadFile(fileName string, fileData io.Reader, fileSize int64) (string, er
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to prepare upload: %s", string(body))
-	}
-
-	var prepareResponse PrepareUploadResponse
-	if err := json.NewDecoder(resp.Body).Decode(&prepareResponse); err != nil {
-		return "", fmt.Errorf("failed to parse prepareUpload response: %w", err)
-	}
-
-	if len(prepareResponse.Files) == 0 {
-		return "", fmt.Errorf("no upload URL returned")
-	}
-
-	uploadURL := prepareResponse.Files[0].UploadURL
-
-	// Step 2: Upload the File
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-	part, err := writer.CreateFormFile("file", fileName)
+	// Read response
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to create form file: %w", err)
+		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	if _, err := io.Copy(part, fileData); err != nil {
-		return "", fmt.Errorf("failed to copy file data: %w", err)
-	}
-	writer.Close()
-
-	req, err = http.NewRequest("PUT", uploadURL, &requestBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to create upload request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err = client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to upload file: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("file upload failed: %s", string(body))
+	// Parse JSON response
+	var result ImgBBResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 
-	return prepareResponse.Files[0].UploadedFile, nil
+	// Check if upload was successful
+	if !result.Success {
+		return "", fmt.Errorf("upload failed: %s", string(body))
+	}
+
+	return result.Data.URL, nil
 }
