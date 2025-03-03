@@ -52,7 +52,7 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 
 	// 🔥 Try both Authorization formats (comment/uncomment to test)
 	req.Header.Set("Authorization", "Bearer "+apiKey) // Common format
-	// req.Header.Set("X-API-Key", apiKey) // Alternative API key format
+	req.Header.Set("X-API-Key", apiKey)               // Alternative API key format
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
