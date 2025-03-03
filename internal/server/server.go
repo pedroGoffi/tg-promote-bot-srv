@@ -21,6 +21,7 @@ func StartServer() {
 	// Configurar rotas
 	routes.SetupRoutes(r)
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{"success": "true"}) })
+	r.POST("/", func(c *gin.Context) { c.JSON(200, gin.H{"success": "true"}) })
 
 	// Rodar servidor
 	port := config.GetServerPort()
