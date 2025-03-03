@@ -10,47 +10,50 @@ import (
 	"net/http"
 )
 
-// UploadResponse represents the response from UploadThing
-type UploadResponse struct {
+// PrepareUploadResponse represents the response from UploadThing's prepareUpload endpoint.
+type PrepareUploadResponse struct {
 	Files []struct {
-		Url string `json:"url"`
+		Key          string `json:"key"`
+		UploadURL    string `json:"uploadUrl"`
+		UploadedFile string `json:"uploadedFile"`
 	} `json:"files"`
 }
 
 // UploadFile uploads a file to UploadThing and returns the file URL.
-func UploadFile(fileName string, fileData io.Reader) (string, error) {
-	apiKey := config.GetUT_KEY() // Keep using your function to get API key
+func UploadFile(fileName string, fileData io.Reader, fileSize int64) (string, error) {
+	apiKey := config.GetUT_KEY()
 	if apiKey == "" {
 		return "", fmt.Errorf("UPLOADTHING_API_KEY is not set")
 	}
 
-	// Prepare multipart form data
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
+	// Step 1: Prepare the Upload
+	prepareUploadURL := "https://api.uploadthing.com/v6/prepareUpload"
+	payload := map[string]interface{}{
+		"callbackUrl":  "",
+		"callbackSlug": "",
+		"files": []map[string]interface{}{
+			{
+				"name":     fileName,
+				"size":     fileSize,
+				"customId": nil,
+			},
+		},
+		"routeConfig": []string{"image"}, // Adjust based on your needs
+		"metadata":    nil,
+	}
 
-	// Attach file
-	part, err := writer.CreateFormFile("file", fileName)
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to create form file: %w", err)
-	}
-	if _, err := io.Copy(part, fileData); err != nil {
-		return "", fmt.Errorf("failed to copy file data: %w", err)
+		return "", fmt.Errorf("failed to marshal JSON payload: %w", err)
 	}
 
-	// Close writer to finalize the form
-	writer.Close()
-
-	// Create HTTP request
-	req, err := http.NewRequest("POST", "https://uploadthing.com/api/upload", &requestBody)
+	req, err := http.NewRequest("POST", prepareUploadURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("X-Uploadthing-Api-Key", apiKey)
+	req.Header.Set("Content-Type", "application/json")
 
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -58,27 +61,51 @@ func UploadFile(fileName string, fileData io.Reader) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Check for successful response
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("upload failed: %s", string(body))
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("failed to prepare upload: %s", string(body))
 	}
 
-	// Parse JSON response
-	var result UploadResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse response JSON: %w", err)
+	var prepareResponse PrepareUploadResponse
+	if err := json.NewDecoder(resp.Body).Decode(&prepareResponse); err != nil {
+		return "", fmt.Errorf("failed to parse prepareUpload response: %w", err)
 	}
 
-	// Ensure file URL is returned
-	if len(result.Files) == 0 {
-		return "", fmt.Errorf("no files returned from UploadThing")
+	if len(prepareResponse.Files) == 0 {
+		return "", fmt.Errorf("no upload URL returned")
 	}
 
-	return result.Files[0].Url, nil
+	uploadURL := prepareResponse.Files[0].UploadURL
+
+	// Step 2: Upload the File
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	if _, err := io.Copy(part, fileData); err != nil {
+		return "", fmt.Errorf("failed to copy file data: %w", err)
+	}
+	writer.Close()
+
+	req, err = http.NewRequest("PUT", uploadURL, &requestBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create upload request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err = client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("file upload failed: %s", string(body))
+	}
+
+	return prepareResponse.Files[0].UploadedFile, nil
 }
